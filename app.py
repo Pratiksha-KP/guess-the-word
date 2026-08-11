@@ -58,15 +58,24 @@ def validate_username(username):
 def validate_password(password):
     if not password or len(password) < 5:
         return "Password must be at least 5 characters long."
-    has_alpha = any(c.isalpha() for c in password)
+
+    has_upper = any(c.isupper() for c in password)
+    has_lower = any(c.islower() for c in password)
     has_digit = any(c.isdigit() for c in password)
-    has_special = any(c in PASSWORD_SPECIAL_CHARS for c in password)
-    if not has_alpha:
-        return "Password must contain at least one letter."
+    has_special = any(not c.isalnum() for c in password)
+
+    if not has_upper:
+        return "Password must contain at least one uppercase letter."
+
+    if not has_lower:
+        return "Password must contain at least one lowercase letter."
+
     if not has_digit:
         return "Password must contain at least one number."
+
     if not has_special:
-        return "Password must contain at least one special character ($, %, *, &)."
+        return "Password must contain at least one special character."
+
     return None
 
 
@@ -99,9 +108,7 @@ def register():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        role = request.form.get("role", "player")
-        if role not in ("player", "admin"):
-            role = "player"
+        role = "player"
 
         username_error = validate_username(username)
         password_error = validate_password(password)
@@ -109,9 +116,11 @@ def register():
         if username_error:
             flash(username_error, "error")
             return render_template("register.html")
+
         if password_error:
             flash(password_error, "error")
             return render_template("register.html")
+
         if User.query.filter_by(username=username).first():
             flash("Username already taken.", "error")
             return render_template("register.html")
@@ -120,6 +129,7 @@ def register():
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
+
         flash("Registration successful. Please log in.", "success")
         return redirect(url_for("login"))
 
