@@ -7,25 +7,29 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<nav class="navbar">
-  <div class="brand">Guess the Word</div>
-  <div class="nav-links">
-    {% if current_user.is_authenticated %}
-      {% if current_user.is_admin() %}
-        <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
-        <a href="{{ url_for('report_daily') }}">Daily Report</a>
-        <a href="{{ url_for('report_user') }}">User Report</a>
-      {% else %}
-        <a href="{{ url_for('game_home') }}">Play</a>
+<header class="wordle-header">
+  <div class="header-inner">
+    <div class="header-side">
+      {% if current_user.is_authenticated and current_user.is_admin() %}
+        <a href="{{ url_for('admin_dashboard') }}" class="header-link">Dashboard</a>
+        <a href="{{ url_for('report_daily') }}" class="header-link">Daily</a>
+        <a href="{{ url_for('report_user') }}" class="header-link">User</a>
+      {% elif current_user.is_authenticated %}
+        <a href="{{ url_for('game_home') }}" class="header-link">Play</a>
       {% endif %}
-      <span class="who">{{ current_user.username }} ({{ current_user.role }})</span>
-      <a href="{{ url_for('logout') }}">Logout</a>
-    {% else %}
-      <a href="{{ url_for('login') }}">Login</a>
-      <a href="{{ url_for('register') }}">Register</a>
-    {% endif %}
+    </div>
+    <h1 class="wordle-logo">Guess the Word</h1>
+    <div class="header-side right">
+      {% if current_user.is_authenticated %}
+        <span class="who">{{ current_user.username }}</span>
+        <a href="{{ url_for('logout') }}" class="header-link">Logout</a>
+      {% else %}
+        <a href="{{ url_for('login') }}" class="header-link">Login</a>
+        <a href="{{ url_for('register') }}" class="header-link">Register</a>
+      {% endif %}
+    </div>
   </div>
-</nav>
+</header>
 
 <div class="container">
   {% with messages = get_flashed_messages(with_categories=true) %}

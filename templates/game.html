@@ -1,59 +1,72 @@
 {% extends "base.html" %}
 {% block title %}Play{% endblock %}
 {% block content %}
-<h1>Guess the Word</h1>
 
-<div id="pre-game" class="panel">
+<div id="pre-game" class="panel wordle-panel">
   <p>Games left today: <strong id="games-left">{{ games_left }}</strong> / {{ max_games }}</p>
-  <button id="start-btn" {% if games_left == 0 %}disabled{% endif %}>Start New Word</button>
+  <button id="start-btn" class="wordle-btn" {% if games_left == 0 %}disabled{% endif %}>Play</button>
   {% if games_left == 0 %}
     <p class="hint">You've used all your attempts for today. Come back tomorrow!</p>
   {% endif %}
 </div>
 
-<div id="game-board" class="panel" style="display:none;">
+<div id="game-board" style="display:none;">
   <div id="grid" class="grid"></div>
+  <p id="attempts-left" class="attempts-left"></p>
+  <p id="error-msg" class="wordle-toast" style="display:none;"></p>
 
-  <form id="guess-form" autocomplete="off">
-    <input type="text" id="guess-input" maxlength="5" placeholder="5-letter word"
-           style="text-transform:uppercase;">
-    <button type="submit">Submit Guess</button>
-  </form>
-  <p id="attempts-left"></p>
-  <p id="error-msg" class="flash error" style="display:none;"></p>
+  <div id="keyboard" class="keyboard"></div>
+
+  <input id="hidden-input" autocomplete="off" autocapitalize="off" spellcheck="false"
+         class="hidden-input" maxlength="5">
 </div>
 
 <div id="result-modal" class="modal-overlay" style="display:none;">
   <div class="modal">
     <p id="result-message"></p>
-    <button id="result-ok">OK</button>
+    <button id="result-ok" class="wordle-btn">OK</button>
   </div>
 </div>
 
 <script>
-const MAX_GUESSES = {{ max_guesses }};
-const WORD_LENGTH = {{ word_length }};
+const MAX_GUESSES = {{ max_guesses | tojson }};
+const WORD_LENGTH = {{ word_length | tojson }};
+const KEY_ROWS = [
+  ['Q','W','E','R','T','Y','U','I','O','P'],
+  ['A','S','D','F','G','H','J','K','L'],
+  ['ENTER','Z','X','C','V','B','N','M','BACK'],
+];
 
 let sessionId = null;
+let currentRow = 0;
+let currentGuess = '';
+let gameOver = false;
+const keyStatus = {}; // letter -> 'green' | 'orange' | 'grey'
 
 const preGame = document.getElementById('pre-game');
 const gameBoard = document.getElementById('game-board');
 const grid = document.getElementById('grid');
-const guessForm = document.getElementById('guess-form');
-const guessInput = document.getElementById('guess-input');
 const attemptsLeftEl = document.getElementById('attempts-left');
 const errorMsg = document.getElementById('error-msg');
 const startBtn = document.getElementById('start-btn');
 const resultModal = document.getElementById('result-modal');
 const resultMessage = document.getElementById('result-message');
 const resultOk = document.getElementById('result-ok');
+const keyboardEl = document.getElementById('keyboard');
+const hiddenInput = document.getElementById('hidden-input');
 
+let toastTimer = null;
 function showError(msg) {
   errorMsg.textContent = msg;
   errorMsg.style.display = 'block';
-}
-function clearError() {
-  errorMsg.style.display = 'none';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { errorMsg.style.display = 'none'; }, 1800);
+  const row = document.getElementById('row-' + currentRow);
+  if (row) {
+    row.classList.remove('shake');
+    void row.offsetWidth;
+    row.classList.add('shake');
+  }
 }
 
 function renderEmptyGrid() {
@@ -65,23 +78,97 @@ function renderEmptyGrid() {
     for (let c = 0; c < WORD_LENGTH; c++) {
       const tile = document.createElement('div');
       tile.className = 'tile';
+      tile.id = `tile-${r}-${c}`;
       row.appendChild(tile);
     }
     grid.appendChild(row);
   }
 }
 
-function fillRow(rowIndex, letters, feedback) {
-  const row = document.getElementById('row-' + rowIndex);
-  const tiles = row.querySelectorAll('.tile');
-  letters.forEach((letter, i) => {
-    tiles[i].textContent = letter;
-    tiles[i].classList.add(feedback[i]); // 'green' | 'orange' | 'grey'
+function renderKeyboard() {
+  keyboardEl.innerHTML = '';
+  KEY_ROWS.forEach(row => {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'keyboard-row';
+    row.forEach(key => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'key';
+      if (key === 'ENTER' || key === 'BACK') btn.classList.add('key-wide');
+      btn.textContent = key === 'BACK' ? '⌫' : key;
+      btn.dataset.key = key;
+      if (key.length === 1 && keyStatus[key]) {
+        btn.classList.add(keyStatus[key]);
+      }
+      btn.addEventListener('click', () => handleKey(key));
+      rowEl.appendChild(btn);
+    });
+    keyboardEl.appendChild(rowEl);
   });
 }
 
+function updateCurrentRowDisplay() {
+  for (let c = 0; c < WORD_LENGTH; c++) {
+    const tile = document.getElementById(`tile-${currentRow}-${c}`);
+    const letter = currentGuess[c] || '';
+    tile.textContent = letter;
+    if (letter) {
+      tile.classList.add('filled');
+    } else {
+      tile.classList.remove('filled');
+    }
+  }
+}
+
+function handleKey(key) {
+  if (gameOver) return;
+  if (key === 'BACK') {
+    currentGuess = currentGuess.slice(0, -1);
+    updateCurrentRowDisplay();
+    return;
+  }
+  if (key === 'ENTER') {
+    submitGuess();
+    return;
+  }
+  if (/^[A-Z]$/.test(key) && currentGuess.length < WORD_LENGTH) {
+    currentGuess += key;
+    updateCurrentRowDisplay();
+    const tile = document.getElementById(`tile-${currentRow}-${currentGuess.length - 1}`);
+    tile.classList.remove('pop');
+    void tile.offsetWidth;
+    tile.classList.add('pop');
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (gameBoard.style.display === 'none' || gameOver) return;
+  const k = e.key;
+  if (k === 'Enter') { handleKey('ENTER'); return; }
+  if (k === 'Backspace') { handleKey('BACK'); return; }
+  if (/^[a-zA-Z]$/.test(k)) { handleKey(k.toUpperCase()); }
+});
+hiddenInput.addEventListener('input', () => { hiddenInput.value = ''; });
+
+function fillRow(rowIndex, letters, feedback) {
+  letters.forEach((letter, i) => {
+    const tile = document.getElementById(`tile-${rowIndex}-${i}`);
+    tile.textContent = letter;
+    tile.classList.add('filled');
+    setTimeout(() => {
+      tile.classList.add('flip', feedback[i]);
+    }, i * 150);
+
+    const prev = keyStatus[letter];
+    if (feedback[i] === 'green' || (feedback[i] === 'orange' && prev !== 'green')
+        || (feedback[i] === 'grey' && !prev)) {
+      keyStatus[letter] = feedback[i];
+    }
+  });
+  setTimeout(renderKeyboard, WORD_LENGTH * 150 + 100);
+}
+
 startBtn.addEventListener('click', async () => {
-  clearError();
   const res = await fetch('/game/start', { method: 'POST' });
   const data = await res.json();
   if (!res.ok) {
@@ -89,23 +176,24 @@ startBtn.addEventListener('click', async () => {
     return;
   }
   sessionId = data.session_id;
+  currentRow = 0;
+  currentGuess = '';
+  gameOver = false;
+  Object.keys(keyStatus).forEach(k => delete keyStatus[k]);
   renderEmptyGrid();
+  renderKeyboard();
   attemptsLeftEl.textContent = `Attempts remaining: ${data.attempts_remaining}`;
   preGame.style.display = 'none';
   gameBoard.style.display = 'block';
-  guessInput.value = '';
-  guessInput.focus();
+  hiddenInput.focus();
 });
 
-guessForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  clearError();
-  const guess = guessInput.value.trim().toUpperCase();
-  if (guess.length !== WORD_LENGTH || !/^[A-Z]+$/.test(guess)) {
-    showError('Please enter a valid 5-letter word (letters only).');
+async function submitGuess() {
+  if (currentGuess.length !== WORD_LENGTH) {
+    showError('Not enough letters.');
     return;
   }
-
+  const guess = currentGuess;
   const res = await fetch('/game/guess', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -113,25 +201,28 @@ guessForm.addEventListener('submit', async (e) => {
   });
   const data = await res.json();
   if (!res.ok) {
-    showError(data.error || 'Something went wrong.');
+    showError(data.error || 'Not a valid word.');
     return;
   }
 
-  const rowIndex = MAX_GUESSES - data.attempts_remaining - 1;
-  fillRow(rowIndex, data.guess.split(''), data.feedback);
-  guessInput.value = '';
+  fillRow(currentRow, data.guess.split(''), data.feedback);
+  currentGuess = '';
+
+  const revealDelay = WORD_LENGTH * 150 + 300;
 
   if (data.status === 'won') {
+    gameOver = true;
     attemptsLeftEl.textContent = '';
-    showModal("🎉 Congratulations! You guessed the word correctly!");
+    setTimeout(() => showModal("🎉 Congratulations! You guessed the word correctly!"), revealDelay);
   } else if (data.status === 'lost') {
+    gameOver = true;
     attemptsLeftEl.textContent = '';
-    showModal(`Better luck next time! The word was ${data.target_word}.`);
+    setTimeout(() => showModal(`Better luck next time! The word was ${data.target_word}.`), revealDelay);
   } else {
+    currentRow += 1;
     attemptsLeftEl.textContent = `Attempts remaining: ${data.attempts_remaining}`;
-    guessInput.focus();
   }
-});
+}
 
 function showModal(message) {
   resultMessage.textContent = message;
@@ -142,25 +233,38 @@ resultOk.addEventListener('click', () => {
   resultModal.style.display = 'none';
   gameBoard.style.display = 'none';
   preGame.style.display = 'block';
-  // Refresh games-left counter by reloading the page (keeps daily-limit logic on server)
   window.location.reload();
 });
 
 {% if active_session %}
-// Resume an in-progress game (e.g. after a page refresh)
 (async function resume() {
-  sessionId = {{ active_session.id }};
+  sessionId = {{ active_session.id | tojson }};
+  currentRow = {{ active_session.guesses|length | tojson }};
+  gameOver = false;
   renderEmptyGrid();
   const existingGuesses = [
     {% for g in active_session.guesses %}
-    { word: "{{ g.guess_word }}", feedback: "{{ g.feedback }}".split(',') },
+    { word: {{ g.guess_word | tojson }}, feedback: {{ g.feedback.split(',') | tojson }} },
     {% endfor %}
   ];
-  existingGuesses.forEach((g, i) => fillRow(i, g.word.split(''), g.feedback));
+  existingGuesses.forEach((g, i) => {
+    g.word.split('').forEach((letter, c) => {
+      const tile = document.getElementById(`tile-${i}-${c}`);
+      tile.textContent = letter;
+      tile.classList.add('filled', 'flip', g.feedback[c]);
+      const prev = keyStatus[letter];
+      if (g.feedback[c] === 'green' || (g.feedback[c] === 'orange' && prev !== 'green')
+          || (g.feedback[c] === 'grey' && !prev)) {
+        keyStatus[letter] = g.feedback[c];
+      }
+    });
+  });
+  renderKeyboard();
   const remaining = MAX_GUESSES - existingGuesses.length;
   attemptsLeftEl.textContent = `Attempts remaining: ${remaining}`;
   preGame.style.display = 'none';
   gameBoard.style.display = 'block';
+  hiddenInput.focus();
 })();
 {% endif %}
 </script>
