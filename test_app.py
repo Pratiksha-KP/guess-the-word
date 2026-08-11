@@ -3,7 +3,7 @@ import tempfile
 import pytest
 
 from app import app, init_db, validate_username, validate_password
-from models import db, GameSession
+from models import db, GameSession, User
 from models import score_guess
 
 
@@ -21,8 +21,51 @@ def client():
 
 
 def register_and_login(client, username="PlayerOne", password="Passw0rd$", role="player"):
-    client.post("/register", data={"username": username, "password": password, "role": role})
-    return client.post("/login", data={"username": username, "password": password})
+    client.post(
+        "/register",
+        data={
+            "username": username,
+            "password": password,
+            "role": role
+        }
+    )
+    return client.post(
+        "/login",
+        data={
+            "username": username,
+            "password": password
+        }
+    )
+
+
+def login_as_admin(client):
+    return client.post(
+        "/login",
+        data={
+            "username": "AdminUser",
+            "password": "Admin1$"
+        }
+    )
+
+def test_admin_can_create_admin(client):
+    login_as_admin(client)
+
+    response = client.post(
+        "/admin/create-admin",
+        data={
+            "username": "SecondAdmin",
+            "password": "Admin2@"
+        }
+    )
+
+    assert response.status_code == 302
+
+    with app.app_context():
+        admin = User.query.filter_by(username="SecondAdmin").first()
+
+        assert admin is not None
+        assert admin.role == "admin"
+        assert admin.check_password("Admin2@")
 
 
 # --- scoring -----------------------------------------------------------
@@ -53,10 +96,15 @@ def test_username_requires_mixed_case():
 
 
 def test_password_requires_all_classes():
-    assert validate_password("abcd1") is not None       # no special char
-    assert validate_password("abcd$") is not None        # no digit
-    assert validate_password("1234$") is not None         # no letter
-    assert validate_password("abc1$") is None
+    assert validate_password("abcde") is not None       # no uppercase, digit, special
+    assert validate_password("ABCDE") is not None       # no lowercase, digit, special
+    assert validate_password("Abcde") is not None       # no digit, special
+    assert validate_password("Abcde1") is not None      # no special character
+    assert validate_password("Ab1@") is not None        # less than 5 characters
+
+    assert validate_password("Abc1@") is None           # valid
+    assert validate_password("Hello1!") is None         # valid
+    assert validate_password("Test5#") is None          # valid
 
 
 # --- registration / login -------------------------------------------------
@@ -68,6 +116,21 @@ def test_register_rejects_bad_username(client):
 def test_register_and_login_success(client):
     r = register_and_login(client)
     assert r.status_code in (200, 302)
+
+def test_public_registration_creates_player(client):
+    client.post(
+        "/register",
+        data={
+            "username": "NewPlayer",
+            "password": "Pass1@"
+        }
+    )
+
+    with app.app_context():
+        user = User.query.filter_by(username="NewPlayer").first()
+
+        assert user is not None
+        assert user.role == "player"
 
 
 # --- game flow -------------------------------------------------------------
@@ -136,6 +199,48 @@ def test_player_cannot_access_admin_reports(client):
     r = client.get("/admin/report/daily")
     assert r.status_code == 302  # redirected away
 
+def test_player_cannot_create_admin(client):
+    register_and_login(
+        client,
+        username="NormalPlayer",
+        password="Player1@"
+    )
+
+    response = client.post(
+        "/admin/create-admin",
+        data={
+            "username": "UnauthorizedAdmin",
+            "password": "Admin1@"
+        }
+    )
+
+    assert response.status_code == 302
+
+    with app.app_context():
+        admin = User.query.filter_by(
+            username="UnauthorizedAdmin"
+        ).first()
+
+        assert admin is None
+
+def test_create_admin_rejects_invalid_password(client):
+    login_as_admin(client)
+
+    response = client.post(
+        "/admin/create-admin",
+        data={
+            "username": "BadAdmin",
+            "password": "abcde"
+        }
+    )
+
+    assert response.status_code == 200
+
+    with app.app_context():
+        admin = User.query.filter_by(username="BadAdmin").first()
+
+        assert admin is None
+
 
 def test_admin_can_view_reports(client):
     register_and_login(client, username="ReportPlayer")
@@ -152,3 +257,19 @@ def test_admin_can_view_reports(client):
     r = client.get("/admin/report/user?username=ReportPlayer")
     assert r.status_code == 200
     assert b"ReportPlayer" not in r.data or True  # page renders without error
+
+def test_public_registration_cannot_create_admin(client):
+    client.post(
+        "/register",
+        data={
+            "username": "FakeAdmin",
+            "password": "Admin1@",
+            "role": "admin"
+        }
+    )
+
+    with app.app_context():
+        user = User.query.filter_by(username="FakeAdmin").first()
+
+        assert user is not None
+        assert user.role == "player"

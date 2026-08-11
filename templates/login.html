@@ -12,5 +12,15 @@
   <button type="submit">Login</button>
 </form>
 <p>New here? <a href="{{ url_for('register') }}">Register</a></p>
-<p class="hint">Default admin: <code>AdminUser</code> / <code>Admin1$</code></p>
+<div class="panel">
+    <strong>Admin Access</strong>
+    <p>
+        To access the Admin Dashboard, log in using the
+        administrator credentials provided with this project.
+    </p>
+    <p>
+        <strong>Username:</strong> AdminUser<br>
+        <strong>Password:</strong> Admin1$
+    </p>
+</div>
 {% endblock %}

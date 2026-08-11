@@ -281,6 +281,44 @@ def game_guess():
 def admin_dashboard():
     return render_template("admin_dashboard.html")
 
+@app.route("/admin/create-admin", methods=["GET", "POST"])
+@admin_required
+def create_admin():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+
+        username_error = validate_username(username)
+        password_error = validate_password(password)
+
+        if username_error:
+            flash(username_error, "error")
+            return render_template("create_admin.html")
+
+        if password_error:
+            flash(password_error, "error")
+            return render_template("create_admin.html")
+
+        if User.query.filter_by(username=username).first():
+            flash("Username already taken.", "error")
+            return render_template("create_admin.html")
+
+        admin = User(
+            username=username,
+            role="admin"
+        )
+        admin.set_password(password)
+
+        db.session.add(admin)
+        db.session.commit()
+
+        flash(
+            f"Admin account '{username}' created successfully.",
+            "success"
+        )
+        return redirect(url_for("admin_dashboard"))
+
+    return render_template("create_admin.html")
 
 @app.route("/admin/report/daily", methods=["GET"])
 @admin_required
