@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}User Report{% endblock %}
+{% block content %}
+<h1>User Report</h1>
+<form method="GET" class="form-card inline">
+  <label>Username</label>
+  <input type="text" name="username" value="{{ username }}" list="player-list">
+  <datalist id="player-list">
+    {% for p in players %}
+      <option value="{{ p.username }}">
+    {% endfor %}
+  </datalist>
+  <button type="submit">View</button>
+</form>
+
+{% if username %}
+  {% if found %}
+    <table class="report-table">
+      <thead>
+        <tr><th>Date</th><th>Words Tried</th><th>Correct Guesses</th></tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.date }}</td>
+          <td>{{ r.tried }}</td>
+          <td>{{ r.correct }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">No games played by this user yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+{% endif %}
+{% endblock %}

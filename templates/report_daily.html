@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Daily Report{% endblock %}
+{% block content %}
+<h1>Daily Report</h1>
+<form method="GET" class="form-card inline">
+  <label>Date</label>
+  <input type="date" name="date" value="{{ selected_date }}">
+  <button type="submit">View</button>
+</form>
+
+<div class="panel">
+  <p><strong>Date:</strong> {{ selected_date }}</p>
+  <p><strong>Number of users who played:</strong> {{ num_users }}</p>
+  <p><strong>Number of words attempted:</strong> {{ num_words_tried }}</p>
+  <p><strong>Number of correct guesses:</strong> {{ num_correct }}</p>
+</div>
+
+<table class="report-table">
+  <thead>
+    <tr><th>User</th><th>Word</th><th>Status</th><th>Attempts Used</th></tr>
+  </thead>
+  <tbody>
+    {% for s in sessions %}
+    <tr>
+      <td>{{ s.user.username }}</td>
+      <td>{{ s.word.word }}</td>
+      <td>{{ s.status }}</td>
+      <td>{{ s.attempts_used() }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">No games played on this date.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
