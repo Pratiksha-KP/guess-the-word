@@ -11,10 +11,10 @@ A Wordle-style word-guessing game built with Flask + SQLite, with two roles:
 <!-- Drop screenshots into a /screenshots folder in the repo and update the paths below. -->
 
 ### Login
-![Login page](screenshots/daily-report.png)
+![Login page](screenshots/login.png)
 
 ### Register
-![Register page](screenshots/register-page.png)
+![Register page](screenshots/register.png)
 
 ### Game — empty board
 ![Empty game board](screenshots/empty-game-board.png)
