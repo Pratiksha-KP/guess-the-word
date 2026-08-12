@@ -1,23 +1,31 @@
+import atexit
 import os
 import tempfile
 import pytest
+
+TEST_DB_FD, TEST_DB_PATH = tempfile.mkstemp()
+
+os.environ["DATABASE_URL"] = "sqlite:///" + TEST_DB_PATH
 
 from app import app, init_db, validate_username, validate_password
 from models import db, GameSession, User
 from models import score_guess
 
-
+@atexit.register
+def cleanup_test_database():
+    os.close(TEST_DB_FD)
+    os.unlink(TEST_DB_PATH)
+    
 @pytest.fixture
 def client():
-    db_fd, db_path = tempfile.mkstemp()
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + db_path
     app.config["TESTING"] = True
+
     with app.app_context():
+        db.drop_all()
         init_db()
+
     with app.test_client() as c:
         yield c
-    os.close(db_fd)
-    os.unlink(db_path)
 
 
 def register_and_login(client, username="PlayerOne", password="Passw0rd$", role="player"):

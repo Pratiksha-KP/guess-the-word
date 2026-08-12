@@ -2,12 +2,14 @@ import os
 import re
 from datetime import date, datetime, timedelta
 from functools import wraps
-
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import (
     LoginManager, login_user, logout_user, login_required, current_user
 )
 from sqlalchemy import func
+
+load_dotenv()
 
 from models import (
     db, User, Word, GameSession, Guess, score_guess,
@@ -19,7 +21,10 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + os.path.join(BASE_DIR, "guess_word.db")
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "DATABASE_URL",
+    "sqlite:///" + os.path.join(BASE_DIR, "guess_word.db")
+)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db.init_app(app)
@@ -386,9 +391,24 @@ def init_db():
             db.session.add(Word(word=w))
         db.session.commit()
 
-    if not User.query.filter_by(username="AdminUser").first():
-        admin = User(username="AdminUser", role="admin")
-        admin.set_password("Admin1$")
+    admin_username = os.environ.get("ADMIN_USERNAME", "AdminUser")
+    admin_password = os.environ.get("ADMIN_PASSWORD")
+
+    if not User.query.filter_by(username=admin_username).first():
+
+        if not admin_password:
+            raise RuntimeError(
+                "ADMIN_PASSWORD is not configured. "
+                "Set ADMIN_PASSWORD in your .env file."
+            )
+
+        admin = User(
+            username=admin_username,
+            role="admin"
+        )
+
+        admin.set_password(admin_password)
+
         db.session.add(admin)
         db.session.commit()
 
