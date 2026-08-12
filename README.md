@@ -11,34 +11,34 @@ A Wordle-style word-guessing game built with Flask + SQLite, with two roles:
 <!-- Drop screenshots into a /screenshots folder in the repo and update the paths below. -->
 
 ### Login
-![Login page](/Users/pratikshak.p/Desktop/opentext docs/guess-the-word/screenshots/daily report.png)
+![Login page](screenshots/daily-report.png)
 
 ### Register
-![Register page](/Users/pratikshak.p/Desktop/opentext docs/guess-the-word/screenshots/register page.png)
+![Register page](screenshots/register-page.png)
 
 ### Game — empty board
-![Empty game board](/Users/pratikshak.p/Desktop/opentext docs/guess-the-word/screenshots/empty game board.png)
+![Empty game board](screenshots/empty-game-board.png)
 
 ### Game — in progress (colored feedback)
-![Game in progress with green/orange/grey tiles](/Users/pratikshak.p/Desktop/opentext docs/guess-the-word/screenshots/game in progress.png)
+![Game in progress with green/orange/grey tiles](screenshots/game-in-progress.png)
 
 ### Win modal
-![Congratulations modal](/Users/pratikshak.p/Desktop/opentext docs/guess-the-word/screenshots/congratulations.png)
+![Congratulations modal](screenshots/congratulations.png)
 
 ### Loss modal
-![Better luck next time modal](/Users/pratikshak.p/Desktop/opentext docs/guess-the-word/screenshots/better luck next tiime.png)
+![Better luck next time modal](screenshots/better-luck-next-time.png)
 
 ### Admin dashboard
-![Admin dashboard](/Users/pratikshak.p/Desktop/opentext docs/guess-the-word/screenshots/admin dashboard.png)
+![Admin dashboard](screenshots/admin-dashboard.png)
 
 ### Create admin account
-![Create admin account page](/Users/pratikshak.p/Desktop/opentext docs/guess-the-word/screenshots/create admin account.png)
+![Create admin account page](screenshots/create-admin-account.png)
 
 ### Daily report
-![Daily report](/Users/pratikshak.p/Desktop/opentext docs/guess-the-word/screenshots/daily report.png)
+![Daily report](screenshots/daily-report.png)
 
 ### User report
-![User report](/Users/pratikshak.p/Desktop/opentext docs/guess-the-word/screenshots/user report.png)
+![User report](screenshots/user-report.png)
 
 ## Stack
 - Python 3, Flask, Flask-SQLAlchemy, Flask-Login
